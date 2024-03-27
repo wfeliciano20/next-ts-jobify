@@ -1,7 +1,6 @@
-'use client'
+'use client';
 
-
-import {zodResolver} from '@hookform/resolvers/zod'
+import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import { Button } from './ui/button';
 import { Form } from './ui/form';
@@ -10,7 +9,10 @@ import {
     CreateAndEditJobType
 } from '@/utils/types';
 import { CustomFormField, CustomFormSelect } from './FormComponents';
-
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { createJobAction } from '@/utils/actions';
+import { useToast } from './ui/use-toast';
+import { useRouter } from 'next/navigation';
 
 
 
@@ -25,10 +27,31 @@ const CreateJobForm = () =>{
             status: 'pending',
             mode:'full-time'
         }
-    })
+    });
+
+    const queryClient = useQueryClient();
+    const { toast } = useToast();
+    const router = useRouter();
+
+    const { mutate, isPending } = useMutation({
+        mutationFn:(values: CreateAndEditJobType)=>createJobAction(values),
+        onSuccess: (data)=>{
+            if(!data){
+                toast({description: 'There was an error creating the job'})
+                return;
+            }
+            toast({description: 'Job created successfully'})
+            queryClient.invalidateQueries({ queryKey: ['jobs']})
+            queryClient.invalidateQueries({ queryKey: ['stats']})
+            queryClient.invalidateQueries({ queryKey: ['charts']})
+            // form.reset()
+            router.push('/jobs')
+        }
+    });
 
     const onSubmit = (values: CreateAndEditJobType) => {
         console.log(values);
+        mutate(values);
     };
 
     return(
@@ -56,13 +79,12 @@ const CreateJobForm = () =>{
                         labelText='job mode'
                         items={['full-time','part-time','internship']}
                     />
-                    <Button type='submit' className='self-end capitalize'>
-                        create job
+                    <Button type='submit' className='self-end capitalize' disabled={isPending}>
+                        {isPending? 'loading': 'create job'}
                     </Button>
                 </div>
             </form>
         </Form>
-
     );
 }
 
